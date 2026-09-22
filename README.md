@@ -24,7 +24,7 @@
 ### 3. 저장소(Upstash Redis) 연결하기 — 방 코드를 저장할 공간
 1. 방금 만든 Vercel 프로젝트 화면에서 **Storage** 탭 → **Marketplace Database Providers** → **Upstash**를 선택합니다.
 2. Redis 데이터베이스를 무료 플랜으로 생성하고, 지금 만든 프로젝트에 연결(Connect)합니다.
-3. 연결하면 `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`이라는 두 환경변수가 프로젝트에 **자동으로 추가**됩니다 — 따로 값을 입력하실 필요는 없습니다.
+3. 연결하면 `KV_REST_API_URL`, `KV_REST_API_TOKEN`이라는 두 환경변수가 프로젝트에 **자동으로 추가**됩니다 — 따로 값을 입력하실 필요는 없습니다.
 4. 환경변수가 추가된 뒤에는 **Deployments** 탭에서 최신 배포를 한 번 "Redeploy" 해주세요(환경변수는 재배포해야 적용됩니다).
 
 ### 4. 완료
