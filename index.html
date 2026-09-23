@@ -1280,12 +1280,14 @@ async function onAct3Situation(userMsg) {
     ...state.counterHistory.map(s => summarize(s)),
   ];
   let textA, textB;
-  try { textA = await ask(counterPrompt(state.value, state.def2, 'A', state.q1reason, priorSummaries)); }
-  catch (e) { textA = '(이야기를 만드는 데 문제가 생겼어요.)'; }
-  try {
-    // B는 A와도 겹치지 않도록, 방금 만든 A까지 회피 목록에 포함시켜 생성한다.
-    textB = await ask(counterPrompt(state.value, state.def2, 'B', state.q1reason, [...priorSummaries, summarize(textA)]));
-  } catch (e) { textB = '(이야기를 만드는 데 문제가 생겼어요.)'; }
+  // 상황1·상황2를 순서대로 만들면 그만큼 오래 걸리므로, 동시에 병렬로 요청한다.
+  // (B가 A를 회피 목록에 참고하지 못하게 되는 대신, 방향 자체가 서로 달라서 겹칠 위험은 낮다.)
+  [textA, textB] = await Promise.all([
+    ask(counterPrompt(state.value, state.def2, 'A', state.q1reason, priorSummaries))
+      .catch(() => '(이야기를 만드는 데 문제가 생겼어요.)'),
+    ask(counterPrompt(state.value, state.def2, 'B', state.q1reason, priorSummaries))
+      .catch(() => '(이야기를 만드는 데 문제가 생겼어요.)'),
+  ]);
   popThinking(tid);
   setBusy(false);
   state.counterHistory.push(textA, textB);
@@ -1422,6 +1424,9 @@ function showRoomInfo() {
 
 function hideSetupOverlay() {
   document.getElementById('setup-overlay').style.display = 'none';
+}
+
+function showShareButton() {
   const shareBtn = document.getElementById('share-btn');
   if (shareBtn) shareBtn.style.display = 'flex';
 }
@@ -1471,6 +1476,7 @@ function wireSetupScreen() {
   };
   document.getElementById('room-continue-btn').onclick = () => {
     hideSetupOverlay();
+    showShareButton();
     startApp();
   };
   document.getElementById('room-restart-link').onclick = (e) => {
@@ -1493,7 +1499,7 @@ function wireSetupScreen() {
   const roomFromUrl = urlParams.get('room');
 
   if (roomFromUrl) {
-    // 학생(또는 공유받은 사람): 키 입력 화면 없이 곧바로 시작.
+    // 학생(또는 공유받은 사람): 키 입력 화면 없이 곧바로 시작. 공유 링크 버튼은 보여주지 않는다.
     ROOM_CODE = roomFromUrl.toUpperCase();
     hideSetupOverlay();
     startApp();
@@ -1502,9 +1508,10 @@ function wireSetupScreen() {
 
   const savedRoom = localStorage.getItem('moral_explorer_room');
   if (savedRoom) {
-    // 이전에 방을 만들어둔 선생님이 돌아온 경우: 바로 이어서 쓸 수 있게 한다.
+    // 이전에 방을 만들어둔 선생님이 돌아온 경우: 바로 이어서 쓸 수 있게 하고, 공유 버튼도 보여준다.
     ROOM_CODE = savedRoom;
     hideSetupOverlay();
+    showShareButton();
     startApp();
     return;
   }

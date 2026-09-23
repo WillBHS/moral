@@ -2,14 +2,15 @@
 // 여기서 방 코드로 저장된 교사의 API 키를 찾아, 서버가 대신 Gemini를 호출한다.
 // 실제 API 키는 이 서버 함수 밖으로 절대 나가지 않는다.
 //
-// Gemini 모델은 몇 달 단위로 새 모델이 나오고 예전 모델은 종료(shut down)된다.
-// 대응 전략은 2단계다:
-//   1) 아래 정해둔 후보 목록을 순서대로 빠르게 시도한다(평소엔 이걸로 끝).
-//   2) 후보가 전부 실패하면(전부 종료됐다면), Gemini의 "지금 쓸 수 있는 모델 목록"
-//      조회 API를 직접 불러서 그 시점에 실제로 살아있는 모델을 자동으로 찾아 쓴다.
-//      이러면 이 파일을 사람이 수동으로 고치지 않아도 당분간은 계속 작동한다.
+// 대응 전략:
+//   - Flash-Lite 계열은 무료 티어 하루 한도가 훨씬 넉넉해서(약 500회 vs 일반 Flash 약 20회),
+//     기본값도 Lite 계열을 우선 시도하도록 순서를 잡았다.
+//   - 모델이 종료됐을 때(404)뿐 아니라, 그 모델의 하루/분당 사용량을 다 썼을 때(429)도
+//     같은 방식으로 "다음 후보 모델로 자동 전환"한다 — 모델마다 한도가 따로 있어서,
+//     하나가 막혀도 다른 모델로 계속 버틸 수 있다.
+//   - 후보가 전부 실패하면, 이 키로 지금 실제 쓸 수 있는 모델을 직접 조회해서 마지막으로 시도한다.
 const MODEL_CANDIDATES = {
-  default: ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-2.5-flash'],
+  default: ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'],
   quick: ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'],
 };
 
@@ -19,6 +20,11 @@ async function callGemini(apiKey, model, prompt) {
     headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
   });
+}
+
+function extractText(data) {
+  const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+  return (parts || []).map((p) => p.text || '').join('').trim();
 }
 
 // 후보 목록이 전부 실패했을 때만 호출되는 최후의 수단: 지금 이 키로 실제 쓸 수 있는
@@ -89,7 +95,8 @@ module.exports = async function handler(req, res) {
 
   const isQuick = tier === 'quick';
   const candidates = MODEL_CANDIDATES[tier] || MODEL_CANDIDATES.default;
-  let sawOnly404 = true;
+  let sawOnlySkippable = true; // 404(모델 없음) 또는 429(한도 초과)만 겪었는지
+  let anyRateLimited = false;
   let lastError = null;
 
   for (const model of candidates) {
@@ -102,7 +109,14 @@ module.exports = async function handler(req, res) {
         continue;
       }
 
-      sawOnly404 = false;
+      if (geminiRes.status === 429) {
+        console.error(`모델 ${model}: 429(사용량 한도 초과), 다음 후보로 시도`);
+        lastError = { status: 429, detail: `rate/quota limited: ${model}` };
+        anyRateLimited = true;
+        continue;
+      }
+
+      sawOnlySkippable = false;
 
       if (!geminiRes.ok) {
         const errText = await geminiRes.text();
@@ -112,34 +126,41 @@ module.exports = async function handler(req, res) {
       }
 
       const data = await geminiRes.json();
-      const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
-      const text = (parts || []).map((p) => p.text || '').join('').trim();
+      const text = extractText(data);
       res.status(200).json({ text, modelUsed: model });
       return;
     } catch (e) {
       console.error(`모델 ${model} 호출 중 예외:`, e);
       lastError = { status: 500, detail: String(e) };
-      sawOnly404 = false;
+      sawOnlySkippable = false;
     }
   }
 
-  // 후보 목록이 전부 404였다면(즉 전부 종료됐다면) 마지막 수단으로 직접 조회해서 시도한다.
-  if (sawOnly404) {
+  // 후보 목록이 전부 404/429였다면 마지막 수단으로 직접 조회해서 시도한다.
+  if (sawOnlySkippable) {
     const discovered = await discoverModel(apiKey, isQuick);
     if (discovered) {
       try {
         const geminiRes = await callGemini(apiKey, discovered, prompt);
         if (geminiRes.ok) {
           const data = await geminiRes.json();
-          const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
-          const text = (parts || []).map((p) => p.text || '').join('').trim();
+          const text = extractText(data);
           res.status(200).json({ text, modelUsed: discovered, viaDiscovery: true });
           return;
         }
+        if (geminiRes.status === 429) anyRateLimited = true;
       } catch (e) {
         console.error('자동 발견 모델 호출 실패:', e);
       }
     }
+  }
+
+  if (anyRateLimited) {
+    res.status(429).json({
+      error: '지금 이 키로 쓸 수 있는 AI 사용량을 다 썼어요. 잠시 후 다시 시도하거나, 내일 다시 이용해 주세요. (선생님: Google AI Studio에서 키에 결제를 연결하면 이 한도가 크게 늘어납니다.)',
+      detail: lastError ? JSON.stringify(lastError) : '',
+    });
+    return;
   }
 
   res.status(502).json({

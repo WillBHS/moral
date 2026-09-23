@@ -5,8 +5,8 @@
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 헷갈리는 0/O, 1/I 제외
 const TTL_SECONDS = 60 * 60 * 48; // 방 유효기간: 48시간
 
-// chat.js와 동일한 후보 목록 — 모델 하나가 종료돼도 키 검증 자체가 막히지 않게 한다.
-const MODEL_CANDIDATES = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-2.5-flash'];
+// chat.js와 동일한 후보 목록(Lite 우선) — 모델 하나가 종료되거나 한도를 다 써도 검증이 막히지 않게 한다.
+const MODEL_CANDIDATES = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'];
 
 function generateRoomCode() {
   let code = '';
@@ -16,7 +16,7 @@ function generateRoomCode() {
   return code;
 }
 
-// 후보가 전부 404(종료됨)일 때 최후의 수단: 이 키로 실제 쓸 수 있는 모델을 직접 조회한다.
+// 후보가 전부 실패했을 때 최후의 수단: 이 키로 실제 쓸 수 있는 모델을 직접 조회한다.
 async function discoverAnyModel(apiKey) {
   try {
     const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
@@ -40,7 +40,7 @@ async function discoverAnyModel(apiKey) {
 }
 
 async function testKeyAgainstGemini(apiKey) {
-  let sawOnly404 = true;
+  let sawOnlySkippable = true; // 404(모델 없음) 또는 429(한도 초과)만 겪었는지
   let lastStatus = null;
   for (const model of MODEL_CANDIDATES) {
     try {
@@ -52,12 +52,12 @@ async function testKeyAgainstGemini(apiKey) {
           body: JSON.stringify({ contents: [{ parts: [{ text: 'hi' }] }] }),
         }
       );
-      if (res.status === 404) {
-        // 이 모델이 종료됨 — 다음 후보로 계속 시도
-        lastStatus = 404;
+      if (res.status === 404 || res.status === 429) {
+        // 모델 종료 또는 이 모델의 한도 초과 — 다음 후보로 계속 시도
+        lastStatus = res.status;
         continue;
       }
-      sawOnly404 = false;
+      sawOnlySkippable = false;
       if (res.ok) return { ok: true };
       const body = await res.text();
       console.error(`키 검증 실패(${model}):`, res.status, body.slice(0, 300));
@@ -65,11 +65,11 @@ async function testKeyAgainstGemini(apiKey) {
     } catch (e) {
       console.error(`키 검증 중 예외(${model}):`, e);
       lastStatus = 500;
-      sawOnly404 = false;
+      sawOnlySkippable = false;
     }
   }
-  // 후보가 전부 404였다면, 실제로 쓸 수 있는 모델이 있는지 마지막으로 직접 조회해본다.
-  if (sawOnly404) {
+  // 후보가 전부 404/429였다면, 실제로 쓸 수 있는 모델이 있는지 마지막으로 직접 조회해본다.
+  if (sawOnlySkippable) {
     const discovered = await discoverAnyModel(apiKey);
     if (discovered) return { ok: true };
   }
@@ -104,6 +104,8 @@ module.exports = async function handler(req, res) {
   if (!testResult.ok) {
     if (testResult.status === 400 || testResult.status === 403) {
       res.status(400).json({ error: '이 API 키가 유효하지 않은 것 같아요. Google AI Studio에서 키를 다시 확인해 주세요.' });
+    } else if (testResult.status === 429) {
+      res.status(400).json({ error: '이 키는 지금 AI 사용량 한도를 다 썼어요. 잠시 후 다시 시도하거나, Google AI Studio에서 결제를 연결해 한도를 늘려주세요.' });
     } else if (testResult.status === 404) {
       res.status(400).json({ error: '사용 가능한 AI 모델을 찾지 못했어요. 관리자에게 문의해 주세요.' });
     } else {
