@@ -35,6 +35,33 @@ module.exports = async function handler(req, res) {
   const roomCode = generateRoomCode();
   const trimmedKey = apiKey.trim();
 
+  // 키가 실제로 Gemini에서 작동하는지 방을 만들기 전에 먼저 확인한다.
+  // (여기서 안 걸러지면, 학생들이 쓰는 도중에야 조용히 실패해서 원인 찾기가 훨씬 어려워진다.)
+  try {
+    const testRes = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': trimmedKey },
+        body: JSON.stringify({ contents: [{ parts: [{ text: 'hi' }] }] }),
+      }
+    );
+    if (!testRes.ok) {
+      const errBody = await testRes.text();
+      console.error('Gemini 키 검증 실패:', testRes.status, errBody.slice(0, 300));
+      if (testRes.status === 400 || testRes.status === 403) {
+        res.status(400).json({ error: '이 API 키가 유효하지 않은 것 같아요. Google AI Studio에서 키를 다시 확인해 주세요.' });
+      } else {
+        res.status(400).json({ error: `키 확인 중 문제가 발생했어요. (상태 코드 ${testRes.status})` });
+      }
+      return;
+    }
+  } catch (e) {
+    console.error('Gemini 키 검증 중 오류:', e);
+    res.status(500).json({ error: '키를 확인하는 중 서버 오류가 발생했어요.' });
+    return;
+  }
+
   try {
     const setUrl = `${redisUrl}/set/room:${roomCode}/${encodeURIComponent(trimmedKey)}?EX=${TTL_SECONDS}`;
     const setRes = await fetch(setUrl, {

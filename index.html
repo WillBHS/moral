@@ -118,38 +118,6 @@
   #reset-btn:hover { background: rgba(255,255,255,0.35); }
   #reset-btn:active .reset-icon { transform: rotate(-90deg); }
   #reset-btn:active { transform: scale(0.95); }
-  /* 🛠️ DEV ONLY — 정식 출시 전 이 스타일 블록도 함께 삭제할 것 */
-  #dev-nav {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    background: repeating-linear-gradient(135deg, #FFECEC, #FFECEC 6px, #FFF5F5 6px, #FFF5F5 12px);
-    border-bottom: 2px dashed #E0567A;
-    font-size: 11px;
-  }
-  #dev-nav input {
-    flex: 1;
-    min-width: 0;
-    font-size: 11px;
-    padding: 5px 8px;
-    border-radius: 8px;
-    border: 1px solid #E0567A;
-    background: #fff;
-  }
-  #dev-nav button {
-    font-size: 11px;
-    padding: 5px 8px;
-    border-radius: 8px;
-    border: 1px solid #E0567A;
-    background: #fff;
-    color: #C93A5E;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  #dev-nav button small { font-size: 9px; display: block; opacity: .8; }
-  #dev-nav button:active { transform: scale(0.95); }
   #transcript {
     flex: 1;
     padding: 22px 14px 16px;
@@ -428,16 +396,6 @@
     <button id="share-btn" title="학생 공유 링크 보기" onclick="showRoomInfo()" style="display:none;">🔗</button>
     <button id="reset-btn" title="대화 초기화" onclick="resetAll()"><span class="reset-icon">🔄</span>대화 초기화</button>
   </header>
-  <!-- ============================================================ -->
-  <!-- 🛠️ DEV ONLY — 테스트용 활동 이동 바. 정식 출시 전에 이 블록 전체를 삭제할 것. -->
-  <!-- ============================================================ -->
-  <div id="dev-nav">
-    <input id="dev-value-input" type="text" placeholder="덕목(예: 인류애)" value="인류애">
-    <button onclick="devJump(1)">▶ 활동1</button>
-    <button onclick="devJump(2)">▶ 활동2<small>(목데이터)</small></button>
-    <button onclick="devJump(3)">▶ 활동3<small>(목데이터)</small></button>
-  </div>
-  <!-- ============================================================ -->
   <div id="transcript"></div>
   <div id="inputzone"></div>
 </div>
@@ -484,7 +442,8 @@ const DEFAULT_PROMPTS = {
   q1FollowupTemplate: "학생이 [{{value}}]에 대해 이런 뜻을 정리했다: \"{{def2}}\"\n학생은 방금 \"이 뜻이 모든 상황에서 맞는가?\"라는 질문에 \"{{choiceLabel}}\"라고 답했다.\n\n너는 학생이 정리한 뜻의 실제 문구(핵심 단어)를 직접 언급하면서, 왜 그렇게 생각했는지 구체적으로 캐묻는 소크라테스식 질문을 딱 한 문장만 만들어라. 판정하거나 힌트를 주지 말고, 학생 스스로 자기 생각의 근거를 설명하게 유도하라. 초등 6학년이 이해할 수 있는 쉬운 말로 써라.\n\n**반드시 '~요?', '~나요?', '~어요?'처럼 끝나는 존댓말(해요체)로 써라. 반말은 절대 쓰지 마라.** (예: \"그렇게 생각한 이유가 뭐예요?\", \"~인 경우는 없을까요?\")\n\n질문 문장 하나만 출력하고 다른 설명은 하지 마라.",
   q1ProbeTemplate: "학생이 [{{value}}]에 대해 이런 뜻을 정리했다: \"{{def2}}\"\n학생은 다음과 같이 답했다: \"{{answer}}\"\n\n이 답변을 잘 읽고, 아직 설명되지 않은 부분이나 빈틈, 혹은 이어서 캐물을 만한 지점을 하나 찾아서, 그걸 파고드는 후속 질문을 딱 한 문장만 만들어라. 학생이 한 말을 인정하거나 판정하지 말고(\"맞아요\",\"좋은 생각이에요\" 등 절대 금지), 그 답변에서 자연스럽게 이어지는 다음 질문을 던져서 학생이 한 번 더 생각해보게 하라. 초등 6학년이 이해할 수 있는 쉬운 말로.\n\n**반드시 '~요?', '~나요?', '~어요?'처럼 끝나는 존댓말(해요체)로 써라. 반말은 절대 쓰지 마라.** (예: \"그럴 때는 어떻게 해야 할까요?\", \"그건 어떤 경우를 말하는 거예요?\")\n\n질문 문장 하나만 출력하고 다른 설명은 하지 마라.",
   depthAndContrastRule: "[마음까지 드러내기 — 필수] 행동만 보여주고 끝내지 마라. 그 행동을 하게 만든 인물의 생각·느낌을 한 문장 안에 자연스럽게 녹여 넣어서, [{{value}}]가 단순한 '해주는 행동'이 아니라 상대를 어떻게 바라보는 마음에서 나온 것인지 드러나게 하라(예: \"나와 사는 곳도 말도 다르지만, 결국 나와 똑같이 소중한 사람이라는 생각이 들어서\" 처럼).\n\n[정당한 핑계 대비 — 권장] 가능하면 인물이 그렇게 행동하지 않아도 이상하지 않을 그럴듯한 핑계(예: 말이 안 통해서, 자기와 상관없는 사람이라서, 도와줘도 아무 보상이 없어서, 귀찮거나 손해를 볼 수 있어서)를 함께 설정하고, 그럼에도 [{{value}}]답게 행동하는 구조로 만들어라. 이렇게 하면 핵심 속성(차별하지 않음, 조건 없음 등)이 훨씬 선명하게 드러난다.",
-  civicScopeLine: "[국가 맥락 — 필수] 이 맥락은 단순히 '공공장소에서 낯선 사람 한 명을 개인적으로 도와주는' 이야기여서는 안 된다 — 그러면 배경만 다를 뿐 친구 맥락과 구조적으로 구별되지 않는다. 반드시 사회 제도·공공 규칙·사회 구성원으로서의 책임이 드러나는 요소가 하나 이상 들어가야 한다. 예: 공공 규칙을 지키는 것이 왜 다른 사람들을 위한 것인지가 드러나는 상황, 사회적 약자를 위한 시설·제도의 필요성을 느끼는 상황, 재난이나 어려움을 겪는 이웃(개인이 아닌 지역사회 구성원으로서)을 여럿이 함께 돕는 상황, 낯선 동네·지역 사람들 전체에게 영향을 주는 문제 등. 등장인물이 한 명이더라도, 그 인물의 행동이 '한 개인에 대한 개인적 친절'이 아니라 '사회 구성원으로서의 책임 또는 관계'로 읽혀야 한다."
+  civicScopeLine: "[국가 맥락 — 필수] 이 맥락은 단순히 '공공장소에서 낯선 사람 한 명을 개인적으로 도와주는' 이야기여서는 안 된다 — 그러면 배경만 다를 뿐 친구 맥락과 구조적으로 구별되지 않는다. 반드시 사회 제도·공공 규칙·사회 구성원으로서의 책임이 드러나는 요소가 하나 이상 들어가야 한다. 예: 공공 규칙을 지키는 것이 왜 다른 사람들을 위한 것인지가 드러나는 상황, 사회적 약자를 위한 시설·제도의 필요성을 느끼는 상황, 재난이나 어려움을 겪는 이웃(개인이 아닌 지역사회 구성원으로서)을 여럿이 함께 돕는 상황, 낯선 동네·지역 사람들 전체에게 영향을 주는 문제 등. 등장인물이 한 명이더라도, 그 인물의 행동이 '한 개인에 대한 개인적 친절'이 아니라 '사회 구성원으로서의 책임 또는 관계'로 읽혀야 한다.",
+  virtueCheckTemplate: "다음 단어가 초등학교 도덕 수업에서 탐구할 '도덕적 가치(덕목)'로 적절한지 판단하라: \"{{word}}\"\n\n인류애, 정직, 배려, 책임감, 협동, 공정, 존중, 용기, 효도, 준법, 절제, 성실처럼 실제 도덕적 가치·미덕을 가리키는 단어면 적절하다. 욕설·비속어·조롱하는 말, 사물이나 사람 이름, 감정 단어가 아닌 것, 무의미한 글자, 도덕 가치와 전혀 무관한 단어(예: 게임, 축구, 바보 등)는 부적절하다.\n\n\"적절\" 또는 \"부적절\" 중 한 단어만 출력하라. 다른 말은 절대 출력하지 마라."
 };
 let PROMPTS = DEFAULT_PROMPTS;
 async function loadPrompts() {
@@ -611,6 +570,10 @@ function interestExamplesPrompt(value) {
   return fillTemplate(PROMPTS.interestExamplesTemplate, { value, pool: PROMPTS.interestPool.join(', ') });
 }
 
+function virtueCheckPrompt(word) {
+  return fillTemplate(PROMPTS.virtueCheckTemplate, { word });
+}
+
 // 방 코드(교사가 만들거나, 학생이 링크로 전달받은 값)를 통해 서버(/api/chat)를 거쳐
 // AI를 호출한다. 실제 API 키는 서버에만 있고 이 브라우저에는 전혀 내려오지 않는다.
 let ROOM_CODE = null;
@@ -623,7 +586,11 @@ async function ask(prompt, tier = 'default') {
     body: JSON.stringify({ roomCode: ROOM_CODE, prompt, tier }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'API 요청에 실패했어요.');
+  if (!res.ok) {
+    // 문제 진단용: 실제 실패 원인을 브라우저 콘솔(F12 → Console)에서 확인할 수 있게 남긴다.
+    console.error('AI 호출 실패:', res.status, data.error, data.detail || '');
+    throw new Error(data.error || 'API 요청에 실패했어요.');
+  }
   return (data.text || '').trim();
 }
 
@@ -931,7 +898,29 @@ function onStartClicked() {
 
 async function onValueSubmit(v) {
   pushUser(v);
-  state.value = v.trim();
+  const trimmed = v.trim();
+
+  setBusy(true);
+  const tid = 't' + Date.now();
+  pushThinking(tid);
+  let valid = true;
+  try {
+    const verdict = await ask(virtueCheckPrompt(trimmed), 'quick');
+    valid = !verdict.includes('부적절');
+  } catch (e) {
+    console.error('덕목 검증 중 오류:', e);
+    // 검증 자체가 실패해도 수업 흐름이 막히지 않도록 통과시킨다.
+  }
+  popThinking(tid);
+  setBusy(false);
+
+  if (!valid) {
+    pushAI('🤔 그건 이 수업에서 다룰 도덕적 가치로 보기 어려워요. 다른 덕목을 입력해 줄래요? (예: 인류애, 정직, 배려, 책임감)');
+    setInputText('예: 인류애', onValueSubmit);
+    return;
+  }
+
+  state.value = trimmed;
   state.step = 'act1_intro';
   await sayAI(`🌟 오늘 우리가 함께 탐구할 덕목은 바로 [${state.value}]군요!
 
@@ -1400,36 +1389,6 @@ function resetAll() {
   renderLog();
   startApp();
 }
-
-// ============================================================
-// 🛠️ DEV ONLY — 테스트용 활동 이동 함수. 정식 출시 전에 이 함수 전체를 삭제할 것.
-// 활동2·3으로 곧장 건너뛸 때는 앞 단계에서 나와야 할 데이터(1차/2차 정의 등)가
-// 없으면 화면이 깨지므로, 최소한의 임시 목(mock) 데이터를 채워서 시작한다.
-// ============================================================
-function devJump(target) {
-  const testValue = (document.getElementById('dev-value-input').value || '').trim() || '인류애';
-  Object.keys(state).forEach(k => { delete state[k]; });
-  Object.assign(state, JSON.parse(JSON.stringify(INITIAL_STATE)));
-  log = [];
-  checkpoint = null;
-  userTypingId = null;
-  state.value = testValue;
-
-  if (target === 1) {
-    renderLog();
-    onCaseRequest();
-  } else if (target === 2) {
-    state.def1 = '(테스트용 1차 정의 — 임시 데이터입니다)';
-    renderLog();
-    onAct2Start();
-  } else if (target === 3) {
-    state.def1 = '(테스트용 1차 정의 — 임시 데이터입니다)';
-    state.def2 = '(테스트용 2차 정의 — 임시 데이터입니다)';
-    renderLog();
-    onAct3Start();
-  }
-}
-
 
 function updateClock() {
   const el = document.getElementById('clock');
