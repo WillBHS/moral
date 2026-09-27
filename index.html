@@ -326,7 +326,6 @@
     border: 1.5px solid #E0C9F0; font-size: 14px; background: #fff; color: #3A2A45;
   }
   .lesson-settings input { margin: 6px 0 0; }
-  .lesson-settings .ls-check { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; cursor: pointer; }
   .ls-check input { width: auto !important; margin: 3px 0 0 !important; flex: 0 0 auto; }
   .ls-note { font-size: 12px; color: #8A7A98; margin-top: 6px; line-height: 1.5; }
   .setup-emoji { font-size: 40px; margin-bottom: 6px; }
@@ -344,6 +343,7 @@
     cursor: pointer; margin-bottom: 8px;
   }
   .setup-card button:active { transform: scale(0.98); }
+  .setup-card button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   .setup-secondary-btn { background: #F0E4FA !important; color: var(--accent-dark) !important; }
   .setup-hint { font-size: 12px; color: #9C8FA8; }
   .setup-hint a { color: var(--accent-dark); }
@@ -382,21 +382,19 @@
         <label for="lesson-virtue">탐구할 덕목</label>
         <select id="lesson-virtue"></select>
         <input id="lesson-virtue-custom" type="text" placeholder="덕목 이름을 입력하세요 (예: 책임)" style="display:none;">
-        <label for="lesson-grade">학년</label>
-        <select id="lesson-grade">
-          <option value="">자동 (덕목의 교과서 학년)</option>
-          <option value="3">3학년</option>
-          <option value="4">4학년</option>
-          <option value="5">5학년</option>
-          <option value="6">6학년</option>
-        </select>
+        <div id="lesson-grade-row" style="display:none;">
+          <label for="lesson-grade">학년</label>
+          <select id="lesson-grade">
+            <option value="">학년을 골라 주세요</option>
+            <option value="3">3학년</option>
+            <option value="4">4학년</option>
+            <option value="5">5학년</option>
+            <option value="6">6학년</option>
+          </select>
+        </div>
         <div class="ls-note" id="lesson-note"></div>
-        <label class="ls-check" id="lesson-skip-probe-row" style="display:none;">
-          <input type="checkbox" id="lesson-skip-probe">
-          <span>활동3 소크라테스식 질문을 1개로 줄이기<br><span class="ls-note" style="margin:0;">3~4학년용 옵션. 두 번째(파고드는) 질문 없이 바로 가상 상황으로 넘어가요.</span></span>
-        </label>
       </div>
-      <p class="setup-hint" style="margin:0 0 4px;">아래 QR·링크로 들어온 학생은 위 설정으로 시작해요.</p>
+      <p class="setup-hint" id="lesson-share-hint" style="margin:0 0 4px;">아래 QR·링크로 들어온 학생은 위 설정으로 시작해요.</p>
       <img id="room-qr" class="room-qr" alt="학생용 QR 코드">
       <div class="room-link" id="room-link-display"></div>
       <button id="room-copy-btn" class="setup-secondary-btn">🔗 링크 복사</button>
@@ -430,7 +428,7 @@
 
 <script>
 const STAGE_LABEL = {
-  landing: '최초 접속', value: '덕목 정하기', act1_intro: '활동1 안내', act1_interest: '활동1 · 관심사',
+  landing: '최초 접속', act1_intro: '활동1 안내', act1_interest: '활동1 · 관심사',
   act1_case: '활동1 · 사례', act1_def1: '활동1 · 정의', act2_menu: '활동2 · 맥락 선택',
   act2_situation: '활동2 · 상황', act2_def2: '활동2 · 정의', act3_q1: '활동3 · 생각해보기',
   act3_situation: '활동3 · 가상 상황', end: '종료'
@@ -485,7 +483,6 @@ const DEFAULT_PROMPTS = {
     "모름",
     "몰라"
   ],
-  "virtueCheckTemplate": "다음 단어가 초등학교 도덕 수업에서 탐구할 '도덕적 가치(덕목)'로 적절한지 판단하라: \"{{word}}\"\n\n인류애, 정직, 배려, 책임감, 협동, 공정, 존중, 용기, 효도, 준법, 절제, 성실처럼 실제 도덕적 가치·미덕을 가리키는 단어면 적절하다. 욕설·비속어·조롱하는 말, 사물이나 사람 이름, 감정 단어가 아닌 것, 무의미한 글자, 도덕 가치와 전혀 무관한 단어(예: 게임, 축구, 바보 등)는 부적절하다.\n\n\"적절\" 또는 \"부적절\" 중 한 단어만 출력하라. 다른 말은 절대 출력하지 마라.",
   "caseTypeMap": "[네 가지 사례 유형 — 학생은 같은 덕목에 대해 네 유형을 차례로 보며 [{{value}}]의 경계를 탐구한다. 각 사례는 자기 유형으로만 읽혀야 하고 다른 유형과 헷갈리면 안 된다]\n- 전형적 사례: 누가 봐도 [{{value}}]{{ida}}.\n- 반대 사례: 누가 봐도 [{{value}}]{{iGa}} 아니다.\n- 관련 사례: [{{value}}]처럼 보이지만 실은 이름이 분명한 다른 개념이다.\n- 경계 사례: [{{value}}]{{ro}} 볼 점과 걸리는 점이 함께 있어 판단이 갈린다.",
   "caseTypes": {
     "model": {
@@ -1202,25 +1199,24 @@ function findProfile(input) {
 function currentProfile() {
   return state.value ? findProfile(state.value) : null;
 }
-// 수업 설정: 교사가 방 화면에서 고른 덕목·학년. 학생은 공유 링크(?v=덕목&g=학년)로 받는다.
+// 수업 설정: 교사가 방 화면에서 고른 덕목(과 직접 입력한 덕목의 학년). 학생은 공유 링크(?v=덕목&g=학년)로 받는다.
 // 대화 초기화·되돌리기와 무관하게 유지되어야 하므로 state 밖에 둔다.
-// virtue: null이면 학생이 직접 입력 / grade: null이면 덕목 프로필의 학년을 따른다.
-// skipProbe: 3~4학년 수업에서 활동3의 두 번째 질문을 생략할지
-const LESSON = { virtue: null, grade: null, skipProbe: false };
+// 등록된 덕목은 지도서(교과서)의 학년으로 고정되고, grade는 '목록에 없는 덕목 직접 입력'일 때만 쓴다.
+const LESSON = { virtue: null, grade: null };
 
-// 지금 수업에 실제로 적용되는 학년(교사가 고른 학년, 없으면 덕목의 교과서 학년). 모르면 null.
+// 지금 수업에 실제로 적용되는 학년. 모르면 null.
 function effectiveGrade() {
-  // 교사가 덕목을 정해 두었으면 그 덕목 기준, 학생이 직접 입력하는 수업이면 학생이 입력한 덕목 기준
   const p = LESSON.virtue ? findProfile(LESSON.virtue) : currentProfile();
-  return LESSON.grade || (p ? p.grade : null);
+  return p ? p.grade : (LESSON.grade || null);
 }
+// 3~4학년 수업은 활동3의 소크라테스식 질문을 1개만 한다(두 번째 파고드는 질문 생략).
 function skipProbeActive() {
-  return LESSON.skipProbe && ['3', '4'].includes(effectiveGrade());
+  return ['3', '4'].includes(effectiveGrade());
 }
 
 function templateGlobals() {
   const p = currentProfile();
-  const grade = LESSON.grade || (p ? p.grade : '5~6');
+  const grade = p ? p.grade : (LESSON.grade || '5~6');
   const v = state.value || '';
   const b = hasBatchim(v);
   const lastCode = v ? v.trim().slice(-1).charCodeAt(0) - 0xAC00 : -1;
@@ -1409,9 +1405,6 @@ function interestExamplesPrompt(value) {
   return fillTemplate(PROMPTS.interestExamplesTemplate, { value, pool: PROMPTS.interestPool.join(', ') });
 }
 
-function virtueCheckPrompt(word) {
-  return fillTemplate(PROMPTS.virtueCheckTemplate, { word });
-}
 
 // ---------- 사례 검수(판정 AI) ----------
 // 학생에게 보여줄 모든 이야기는 "생성 → 판정 → (탈락 시) 문제를 알려주고 재생성" 과정을 거친다.
@@ -1787,61 +1780,16 @@ async function startApp() {
 
 function onStartClicked() {
   pushUser('시작할게요');
-  if (LESSON.virtue) {
-    if (!findProfile(LESSON.virtue)) console.info(`[덕목] "${LESSON.virtue}"은(는) 지도서 정의가 등록되지 않은 덕목입니다 — 일반 모드로 진행합니다.`);
-    beginWithValue(findProfile(LESSON.virtue) ? findProfile(LESSON.virtue).name : LESSON.virtue, true);
-    return;
-  }
-  state.step = 'value';
-  pushAI(`🌱 오늘 탐구할 덕목을 알려주세요!
-예) 인류애, 공정, 배려, 정직, 봉사…
-
-👉 덕목 단어 하나만 입력하면 돼요!`);
-  setInputText('예: 인류애', onValueSubmit);
+  const p = findProfile(LESSON.virtue);
+  if (!p) console.info(`[덕목] "${LESSON.virtue}"은(는) 지도서 정의가 등록되지 않은 덕목입니다 — 일반 모드로 진행합니다.`);
+  beginWithValue(p ? p.name : LESSON.virtue);
 }
 
-async function onValueSubmit(v) {
-  pushUser(v);
-  let trimmed = v.trim();
-
-  // 지도서 정의가 등록된 덕목이면 AI 확인 없이 바로 쓴다(이름은 지도서 표기로 맞춘다).
-  // 등록되지 않은 단어만 AI로 도덕적 가치인지 확인한다.
-  const profile = findProfile(trimmed);
-  let valid = true;
-  if (profile) {
-    trimmed = profile.name;
-  } else {
-    setBusy(true);
-    const tid = 't' + Date.now();
-    pushThinking(tid);
-    try {
-      const verdict = await ask(virtueCheckPrompt(trimmed), 'quick');
-      valid = !verdict.includes('부적절');
-    } catch (e) {
-      console.error('덕목 검증 중 오류:', e);
-      // 검증 자체가 실패해도 수업 흐름이 막히지 않도록 통과시킨다.
-    }
-    popThinking(tid);
-    setBusy(false);
-    if (valid) console.info(`[덕목] "${trimmed}"은(는) 지도서 정의가 등록되지 않은 덕목입니다 — 일반 모드로 진행합니다.`);
-  }
-
-  if (!valid) {
-    pushAI('🤔 그건 이 수업에서 다룰 도덕적 가치로 보기 어려워요. 다른 덕목을 입력해 줄래요? (예: 인류애, 정직, 배려, 봉사)');
-    setInputText('예: 인류애', onValueSubmit);
-    return;
-  }
-
-  await beginWithValue(trimmed, false);
-}
-
-// 덕목이 정해진 뒤의 안내. fromLesson=true는 교사가 수업 설정에서 미리 정해둔 경우다.
-async function beginWithValue(name, fromLesson) {
+// 교사가 수업 설정에서 정해 둔 덕목으로 탐구를 시작한다.
+async function beginWithValue(name) {
   state.value = name;
   state.step = 'act1_intro';
-  const intro = fromLesson
-    ? `🌟 오늘 우리가 함께 탐구할 덕목은 [${name}]${hasBatchim(name) ? '이에요' : '예요'}!`
-    : `🌟 오늘 우리가 함께 탐구할 덕목은 바로 [${name}]군요!`;
+  const intro = `🌟 오늘 우리가 함께 탐구할 덕목은 [${name}]${hasBatchim(name) ? '이에요' : '예요'}!`;
   await sayAI(`${intro}
 
 🔍 [${state.value}]${hasBatchim(state.value) ? '이' : '가'} 무엇인지, 어떤 상황에서 어떤 의미를 가지는지 지금부터 함께 깊이 탐구해볼 거예요.`);
@@ -2368,26 +2316,29 @@ function buildShareUrl(code) {
   url.hash = '';
   url.searchParams.set('room', code);
   if (LESSON.virtue) url.searchParams.set('v', LESSON.virtue);
-  if (LESSON.grade) url.searchParams.set('g', LESSON.grade);
-  if (skipProbeActive()) url.searchParams.set('q', '1');
+  // 학년은 '직접 입력한 덕목'일 때만 링크에 담는다(등록된 덕목은 지도서 학년으로 고정)
+  if (LESSON.virtue && !findProfile(LESSON.virtue) && LESSON.grade) url.searchParams.set('g', LESSON.grade);
   return url.toString();
 }
 
-// ---------- 수업 설정(덕목·학년) ----------
+// ---------- 수업 설정(덕목, 직접 입력한 덕목의 학년) ----------
 const LESSON_KEY = 'moral_explorer_lesson';
 const VIRTUE_CUSTOM = '__custom';
-const VIRTUE_STUDENT = '__student';
 let appStarted = false;
 let appliedLessonSig = null; // 지금 대화가 어떤 설정으로 시작됐는지
 
-function lessonSig() { return JSON.stringify([LESSON.virtue, LESSON.grade, skipProbeActive()]); }
+function lessonSig() { return JSON.stringify([LESSON.virtue, LESSON.grade]); }
+// 학생에게 링크를 줄 수 있는 상태인지: 덕목이 정해졌고, 직접 입력한 덕목이면 학년도 골랐는지
+function lessonReady() {
+  return !!LESSON.virtue && (!!findProfile(LESSON.virtue) || !!LESSON.grade);
+}
 function saveLesson() {
   try { localStorage.setItem(LESSON_KEY, JSON.stringify(LESSON)); } catch (e) {}
 }
 function loadSavedLesson() {
   try {
     const v = JSON.parse(localStorage.getItem(LESSON_KEY) || 'null');
-    if (v) { LESSON.virtue = v.virtue || null; LESSON.grade = v.grade || null; LESSON.skipProbe = !!v.skipProbe; }
+    if (v) { LESSON.virtue = v.virtue || null; LESSON.grade = v.grade || null; }
   } catch (e) {}
 }
 function normalizeGrade(g) {
@@ -2397,6 +2348,9 @@ function normalizeGrade(g) {
 function populateVirtueSelect() {
   const sel = document.getElementById('lesson-virtue');
   sel.innerHTML = '';
+  const ph = document.createElement('option');
+  ph.value = ''; ph.textContent = '덕목을 골라 주세요'; ph.disabled = true;
+  sel.appendChild(ph);
   const byGrade = {};
   (PROMPTS.virtueProfiles || []).forEach(p => { (byGrade[p.grade] = byGrade[p.grade] || []).push(p); });
   Object.keys(byGrade).sort().forEach(g => {
@@ -2412,9 +2366,9 @@ function populateVirtueSelect() {
   });
   const etc = document.createElement('optgroup');
   etc.label = '기타';
-  [[VIRTUE_CUSTOM, '✏️ 목록에 없는 덕목 직접 입력'], [VIRTUE_STUDENT, '🙋 학생이 직접 입력하게 하기']].forEach(([v, t]) => {
-    const o = document.createElement('option'); o.value = v; o.textContent = t; etc.appendChild(o);
-  });
+  const o = document.createElement('option');
+  o.value = VIRTUE_CUSTOM; o.textContent = '✏️ 목록에 없는 덕목 직접 입력';
+  etc.appendChild(o);
   sel.appendChild(etc);
 }
 
@@ -2423,28 +2377,26 @@ function renderLessonControls() {
   const sel = document.getElementById('lesson-virtue');
   const custom = document.getElementById('lesson-virtue-custom');
   const p = LESSON.virtue ? findProfile(LESSON.virtue) : null;
-  if (!LESSON.virtue) { sel.value = VIRTUE_STUDENT; custom.style.display = 'none'; }
-  else if (p) { sel.value = p.name; custom.style.display = 'none'; }
-  else { sel.value = VIRTUE_CUSTOM; custom.style.display = 'block'; custom.value = LESSON.virtue; }
-  document.getElementById('lesson-grade').value = LESSON.grade || '';
-  document.getElementById('lesson-skip-probe').checked = LESSON.skipProbe;
+  const isCustom = !!LESSON.virtue && !p;
+  sel.value = !LESSON.virtue ? '' : (p ? p.name : VIRTUE_CUSTOM);
+  custom.style.display = isCustom ? 'block' : 'none';
+  if (isCustom) custom.value = LESSON.virtue;
+  document.getElementById('lesson-grade-row').style.display = isCustom ? 'block' : 'none';
+  document.getElementById('lesson-grade').value = isCustom ? (LESSON.grade || '') : '';
   updateLessonNote();
 }
 
 function updateLessonNote() {
-  // "질문 1개로 줄이기"는 실제 적용 학년이 3~4학년일 때만 보여준다.
-  document.getElementById('lesson-skip-probe-row').style.display =
-    ['3', '4'].includes(effectiveGrade()) ? 'flex' : 'none';
   const note = document.getElementById('lesson-note');
   const p = LESSON.virtue ? findProfile(LESSON.virtue) : null;
+  const g = effectiveGrade();
+  const probeNote = ['3', '4'].includes(g) ? ' 3~4학년이라 활동3의 소크라테스식 질문은 1개로 진행해요.' : '';
   if (p) {
-    const diff = LESSON.grade && LESSON.grade !== p.grade;
-    note.textContent = `교과서: ${p.grade}학년 ${p.unit}. 지도서 정의를 기준으로 사례를 만들어요.`
-      + (diff ? ` 이야기 수준은 선택한 ${LESSON.grade}학년에 맞춰요.` : '');
-  } else if (LESSON.virtue) {
-    note.textContent = '지도서 정의가 등록되지 않은 덕목이라, AI가 일반적인 뜻으로 사례를 만들어요.';
+    note.textContent = `교과서: ${p.grade}학년 ${p.unit}. 지도서 정의를 기준으로, ${p.grade}학년 수준에 맞춰 사례를 만들어요.` + probeNote;
+  } else if (LESSON.virtue || document.getElementById('lesson-virtue').value === VIRTUE_CUSTOM) {
+    note.textContent = '지도서 정의가 등록되지 않은 덕목이라, AI가 일반적인 뜻으로 사례를 만들어요. 이야기 수준을 맞출 학년을 골라 주세요.' + probeNote;
   } else {
-    note.textContent = '학생이 처음에 덕목을 직접 입력해요. 목록에 있는 덕목이면 지도서 정의를 기준으로 사례를 만들어요.';
+    note.textContent = '';
   }
 }
 
@@ -2452,30 +2404,46 @@ function updateLessonNote() {
 function readLessonControls() {
   const sel = document.getElementById('lesson-virtue');
   const custom = document.getElementById('lesson-virtue-custom');
-  const gradeSel = document.getElementById('lesson-grade');
-  if (sel.value === VIRTUE_STUDENT) { LESSON.virtue = null; custom.style.display = 'none'; }
-  else if (sel.value === VIRTUE_CUSTOM) {
-    custom.style.display = 'block';
+  const isCustom = sel.value === VIRTUE_CUSTOM;
+  custom.style.display = isCustom ? 'block' : 'none';
+  document.getElementById('lesson-grade-row').style.display = isCustom ? 'block' : 'none';
+  if (isCustom) {
     LESSON.virtue = custom.value.trim() || null;
+    LESSON.grade = document.getElementById('lesson-grade').value || null;
   } else {
-    custom.style.display = 'none';
-    LESSON.virtue = sel.value;
+    LESSON.virtue = sel.value || null;
+    LESSON.grade = null; // 등록된 덕목은 지도서 학년 고정
   }
-  LESSON.grade = gradeSel.value || null; // 빈 값 = 자동(덕목의 교과서 학년, 미등록 덕목은 5~6학년 수준)
-  LESSON.skipProbe = document.getElementById('lesson-skip-probe').checked;
   saveLesson();
   updateLessonNote();
   refreshShareLink();
 }
 
+// 설정이 다 되었을 때만 링크·QR을 보여주고 복사·시작 버튼을 켠다.
 function refreshShareLink() {
+  const ready = lessonReady();
+  const qr = document.getElementById('room-qr');
+  const linkEl = document.getElementById('room-link-display');
+  const hint = document.getElementById('lesson-share-hint');
+  document.getElementById('room-copy-btn').disabled = !ready;
+  document.getElementById('room-continue-btn').disabled = !ready;
+  if (!ready) {
+    qr.style.display = 'none';
+    linkEl.style.display = 'none';
+    hint.textContent = document.getElementById('lesson-virtue').value === VIRTUE_CUSTOM
+      ? '덕목 이름과 학년을 정하면 학생용 QR과 링크가 만들어져요.'
+      : '덕목을 고르면 학생용 QR과 링크가 만들어져요.';
+    return;
+  }
+  hint.textContent = '아래 QR·링크로 들어온 학생은 위 설정으로 시작해요.';
   const link = buildShareUrl(ROOM_CODE);
   // 화면에는 한글 덕목 이름이 읽히도록 풀어서 보여준다(복사·QR에는 그대로 쓸 수 있는 인코딩된 주소를 쓴다).
   let shown = link;
   try { shown = decodeURI(link); } catch (e) {}
-  document.getElementById('room-link-display').textContent = shown;
-  document.getElementById('room-qr').src =
-    'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(link);
+  linkEl.textContent = shown;
+  linkEl.style.display = 'block';
+  qr.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(link);
+  qr.style.display = 'block';
 }
 
 function showRoomInfo() {
@@ -2530,6 +2498,7 @@ function wireSetupScreen() {
     createRoom(key);
   };
   document.getElementById('room-copy-btn').onclick = () => {
+    if (!lessonReady()) return;
     const link = buildShareUrl(ROOM_CODE);
     navigator.clipboard.writeText(link).then(() => {
       const b = document.getElementById('room-copy-btn');
@@ -2541,13 +2510,8 @@ function wireSetupScreen() {
   document.getElementById('lesson-virtue').onchange = readLessonControls;
   document.getElementById('lesson-grade').onchange = readLessonControls;
   document.getElementById('lesson-virtue-custom').oninput = readLessonControls;
-  document.getElementById('lesson-skip-probe').onchange = readLessonControls;
   document.getElementById('room-continue-btn').onclick = () => {
-    const sel = document.getElementById('lesson-virtue');
-    if (sel.value === VIRTUE_CUSTOM && !LESSON.virtue) {
-      document.getElementById('lesson-virtue-custom').focus();
-      return;
-    }
+    if (!lessonReady()) return;
     hideSetupOverlay();
     showShareButton();
     // 처음 시작하거나 수업 설정이 바뀌었으면 새 설정으로 대화를 다시 시작한다.
@@ -2579,8 +2543,12 @@ function wireSetupScreen() {
     ROOM_CODE = roomFromUrl.toUpperCase();
     LESSON.virtue = (urlParams.get('v') || '').trim() || null;
     LESSON.grade = normalizeGrade(urlParams.get('g'));
-    LESSON.skipProbe = urlParams.get('q') === '1';
     hideSetupOverlay();
+    if (!LESSON.virtue) {
+      // 덕목이 담기지 않은 링크(예: 예전 링크)는 시작할 수 없으므로 안내만 한다.
+      pushAI('⚠️ 이 링크에는 오늘 수업의 덕목 정보가 없어요. 선생님께 새 수업 링크(또는 QR)를 받아 주세요.');
+      return;
+    }
     startApp();
     return;
   }
@@ -2590,6 +2558,11 @@ function wireSetupScreen() {
   if (savedRoom) {
     // 이전에 방을 만들어둔 선생님이 돌아온 경우: 바로 이어서 쓸 수 있게 하고, 공유 버튼도 보여준다.
     ROOM_CODE = savedRoom;
+    if (!lessonReady()) {
+      // 수업 설정(덕목)이 아직 없으면 설정 화면부터 보여준다.
+      showRoomInfo();
+      return;
+    }
     hideSetupOverlay();
     showShareButton();
     startApp();
