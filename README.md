@@ -71,7 +71,7 @@
 3. 탈락하면 탈락 사유와 탈락한 초안을 알려주고 한 번 더 새로 씁니다.
 4. 두 번째도 탈락하면, 사유를 반영해 다시 쓴 두 번째 초안을 그대로 보여줍니다(수업이 멈추지 않도록).
 
-- 판정 기준은 `prompts.json`의 `judgeTemplate`, `judgeCommonCriteria`, `judgeCriteria`, `judgeContextExtra`에 있습니다.
+- 실패 조건은 `prompts.json`의 `commonChecks`(모든 이야기 공통), `caseTypes.*.failChecks`(사례 유형별), `situationChecks`·`contextChecks`(활동2), `counterChecks`(활동3)에 있습니다. **이야기를 만드는 AI의 최종 점검과 판정 AI의 기준이 이 같은 목록에서 나오므로**, 한 곳만 고치면 양쪽에 함께 반영됩니다.
 - 판정 AI 호출이 실패하면 수업이 막히지 않도록 통과로 처리합니다.
 - 활동1에서는 학생이 사례를 읽는 동안 다음 사례를 미리 생성·검수해 두므로 대기 시간이 거의 늘지 않습니다. 활동2·3은 판정 1회만큼(보통 1~2초) 대기가 늘어납니다.
 - 검수 과정은 브라우저 개발자 도구(F12 → Console)에 `[사례 검수]`로 기록됩니다.
